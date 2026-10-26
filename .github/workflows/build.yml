@@ -1,4 +1,4 @@
-name: Build RiserLab VST3
+name: Build RiserLab
 
 on:
   workflow_dispatch:
@@ -7,6 +7,7 @@ on:
 
 jobs:
   build-windows:
+    name: Windows x64 - VST3
     runs-on: windows-latest
     steps:
       - name: Checkout source
@@ -18,10 +19,39 @@ jobs:
       - name: Build VST3
         run: cmake --build build --config Release --target RiserLab_VST3 --parallel 2
 
-      - name: Upload VST3 plugin
+      - name: Upload Windows VST3
         uses: actions/upload-artifact@v4
         with:
           name: RiserLab-Windows-x64-VST3
           path: build/RiserLab_artefacts/Release/VST3/
+          if-no-files-found: error
+          compression-level: 6
+
+  build-macos:
+    name: macOS Universal - VST3 and AU
+    runs-on: macos-14
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build VST3 and AU
+        run: cmake --build build --config Release --parallel 2
+
+      - name: Upload macOS VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: RiserLab-macOS-Universal-VST3
+          path: build/RiserLab_artefacts/Release/VST3/
+          if-no-files-found: error
+          compression-level: 6
+
+      - name: Upload macOS AU
+        uses: actions/upload-artifact@v4
+        with:
+          name: RiserLab-macOS-Universal-AU
+          path: build/RiserLab_artefacts/Release/AU/
           if-no-files-found: error
           compression-level: 6

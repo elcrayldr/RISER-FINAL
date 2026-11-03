@@ -88,8 +88,12 @@ jobs:
       - name: Package macOS artifacts
         run: |
           mkdir -p dist
-          ditto -c -k --sequesterRsrc --keepParent build/RiserLab_artefacts/Release/VST3/RiserLab.vst3 dist/RiserLab-macOS-Universal-VST3.zip
-          ditto -c -k --sequesterRsrc --keepParent build/RiserLab_artefacts/Release/AU/RiserLab.component dist/RiserLab-macOS-Universal-AU.zip
+          VST3_BUNDLE="$(find build/RiserLab_artefacts/Release/VST3 -maxdepth 1 -name '*.vst3' -print -quit)"
+          AU_BUNDLE="$(find build/RiserLab_artefacts/Release/AU -maxdepth 1 -name '*.component' -print -quit)"
+          test -n "$VST3_BUNDLE"
+          test -n "$AU_BUNDLE"
+          ditto -c -k --sequesterRsrc --keepParent "$VST3_BUNDLE" dist/RiserLab-macOS-Universal-VST3.zip
+          ditto -c -k --sequesterRsrc --keepParent "$AU_BUNDLE" dist/RiserLab-macOS-Universal-AU.zip
 
       - name: Upload macOS VST3
         uses: actions/upload-artifact@v4

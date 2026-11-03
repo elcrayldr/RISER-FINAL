@@ -72,8 +72,8 @@ jobs:
           lipo -archs "$VST3_BINARY"
           echo "AU architectures:"
           lipo -archs "$AU_BINARY"
-          lipo -verify_arch arm64 x86_64 "$VST3_BINARY"
-          lipo -verify_arch arm64 x86_64 "$AU_BINARY"
+          lipo "$VST3_BINARY" -verify_arch arm64 x86_64
+          lipo "$AU_BINARY" -verify_arch arm64 x86_64
 
       - name: Validate AU with Apple's auval
         shell: bash

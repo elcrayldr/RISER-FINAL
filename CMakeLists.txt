@@ -1,11 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
 
-# Configure macOS toolchain properties before project() enables C/C++.
-# The release build is Universal 2: Intel x86_64 + Apple Silicon arm64.
-if(APPLE)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum supported macOS version" FORCE)
-    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Universal 2 architectures" FORCE)
-endif()
+# These Apple toolchain variables must be set before project() enables C/C++.
+# CMake ignores them on non-Apple platforms. The release build is Universal 2.
+set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum supported macOS version")
+set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Universal 2 architectures")
 
 project(RiserLab VERSION 0.1.0 LANGUAGES C CXX)
 

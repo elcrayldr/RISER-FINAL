@@ -1,14 +1,16 @@
 cmake_minimum_required(VERSION 3.22)
 
+# Configure macOS toolchain properties before project() enables C/C++.
+# The release build is Universal 2: Intel x86_64 + Apple Silicon arm64.
+if(APPLE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum supported macOS version" FORCE)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Universal 2 architectures" FORCE)
+endif()
+
 project(RiserLab VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-if(APPLE)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "")
-    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
-endif()
 
 include(FetchContent)
 
@@ -21,7 +23,7 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(JUCE)
 
-# Descargar el logo público para incrustarlo en la interfaz del plugin.
+# Download the public CRAY LDR logo and embed it in the plugin UI.
 set(CRAY_LDR_LOGO "${CMAKE_CURRENT_BINARY_DIR}/CrayLDRLogo.png")
 file(DOWNLOAD
     "https://raw.githubusercontent.com/elcrayldr/logo/main/IMG_7425.PNG"
@@ -31,7 +33,7 @@ file(DOWNLOAD
 )
 list(GET CRAY_LDR_LOGO_DOWNLOAD_STATUS 0 CRAY_LDR_LOGO_DOWNLOAD_CODE)
 if(NOT CRAY_LDR_LOGO_DOWNLOAD_CODE EQUAL 0)
-    message(FATAL_ERROR "No se pudo descargar el logo de CRAY LDR: ${CRAY_LDR_LOGO_DOWNLOAD_STATUS}")
+    message(FATAL_ERROR "Could not download CRAY LDR logo: ${CRAY_LDR_LOGO_DOWNLOAD_STATUS}")
 endif()
 
 juce_add_binary_data(RiserLabAssets

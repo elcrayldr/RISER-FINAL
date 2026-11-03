@@ -83,6 +83,18 @@ jobs:
           mkdir -p "$HOME/Library/Audio/Plug-Ins/Components"
           rm -rf "$HOME/Library/Audio/Plug-Ins/Components/RiserLab.component"
           ditto "$AU_BUNDLE" "$HOME/Library/Audio/Plug-Ins/Components/RiserLab.component"
+          echo "=== AU Info.plist ==="
+          plutil -p "$HOME/Library/Audio/Plug-Ins/Components/RiserLab.component/Contents/Info.plist"
+          echo "=== AudioComponents metadata ==="
+          /usr/libexec/PlistBuddy -c 'Print :AudioComponents' "$HOME/Library/Audio/Plug-Ins/Components/RiserLab.component/Contents/Info.plist" || true
+          echo "=== Registered Audio Units before refresh ==="
+          /usr/bin/auval -a || true
+          echo "=== Refresh Audio Unit component registration ==="
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 3
+          echo "=== Registered Audio Units after refresh ==="
+          /usr/bin/auval -a || true
+          echo "=== Validate RiserLab AU ==="
           /usr/bin/auval -v aufx Rslp CrLd
 
       - name: Package macOS artifacts

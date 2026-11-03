@@ -1,9 +1,14 @@
-name: Build RiserLab
+name: Build and validate RiserLab
 
 on:
   workflow_dispatch:
   push:
+    branches: [main, "fix/**"]
+  pull_request:
     branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
   build-windows:
@@ -27,31 +32,93 @@ jobs:
           if-no-files-found: error
           compression-level: 6
 
-  build-macos:
-    name: macOS Universal - VST3 and AU
+  build-macos-universal:
+    name: macOS Universal 2 - VST3 + AU
     runs-on: macos-14
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Configure CMake
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Show build environment
+        run: |
+          sw_vers
+          uname -m
+          xcodebuild -version
+          cmake --version
+
+      - name: Configure Universal 2 build
+        run: |
+          cmake -S . -B build -G Xcode \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
 
       - name: Build VST3 and AU
-        run: cmake --build build --config Release --parallel 2
+        run: cmake --build build --config Release --target RiserLab_VST3 RiserLab_AU --parallel 2
+
+      - name: Verify both CPU architectures in VST3 and AU
+        shell: bash
+        run: |
+          set -euo pipefail
+          VST3_BUNDLE="$(find build/RiserLab_artefacts/Release/VST3 -maxdepth 1 -name '*.vst3' -print -quit)"
+          AU_BUNDLE="$(find build/RiserLab_artefacts/Release/AU -maxdepth 1 -name '*.component' -print -quit)"
+          test -n "$VST3_BUNDLE"
+          test -n "$AU_BUNDLE"
+          VST3_BINARY="$VST3_BUNDLE/Contents/MacOS/RiserLab"
+          AU_BINARY="$AU_BUNDLE/Contents/MacOS/RiserLab"
+          test -f "$VST3_BINARY"
+          test -f "$AU_BINARY"
+          echo "VST3 architectures:"
+          lipo -archs "$VST3_BINARY"
+          echo "AU architectures:"
+          lipo -archs "$AU_BINARY"
+          lipo "$VST3_BINARY" -verify_arch arm64 x86_64
+          lipo "$AU_BINARY" -verify_arch arm64 x86_64
+
+      - name: Validate AU with Apple's auval
+        shell: bash
+        run: |
+          set -euo pipefail
+          AU_BUNDLE="$(find build/RiserLab_artefacts/Release/AU -maxdepth 1 -name '*.component' -print -quit)"
+          mkdir -p "$HOME/Library/Audio/Plug-Ins/Components"
+          rm -rf "$HOME/Library/Audio/Plug-Ins/Components/RiserLab.component"
+          ditto "$AU_BUNDLE" "$HOME/Library/Audio/Plug-Ins/Components/RiserLab.component"
+          echo "=== AU Info.plist ==="
+          plutil -p "$HOME/Library/Audio/Plug-Ins/Components/RiserLab.component/Contents/Info.plist"
+          echo "=== AudioComponents metadata ==="
+          /usr/libexec/PlistBuddy -c 'Print :AudioComponents' "$HOME/Library/Audio/Plug-Ins/Components/RiserLab.component/Contents/Info.plist" || true
+          echo "=== Registered Audio Units before refresh ==="
+          /usr/bin/auval -a || true
+          echo "=== Refresh Audio Unit component registration ==="
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 3
+          echo "=== Registered Audio Units after refresh ==="
+          /usr/bin/auval -a || true
+          echo "=== Validate RiserLab AU ==="
+          /usr/bin/auval -v aufx Rslp CrLd
+
+      - name: Package macOS artifacts
+        run: |
+          mkdir -p dist
+          VST3_BUNDLE="$(find build/RiserLab_artefacts/Release/VST3 -maxdepth 1 -name '*.vst3' -print -quit)"
+          AU_BUNDLE="$(find build/RiserLab_artefacts/Release/AU -maxdepth 1 -name '*.component' -print -quit)"
+          test -n "$VST3_BUNDLE"
+          test -n "$AU_BUNDLE"
+          ditto -c -k --sequesterRsrc --keepParent "$VST3_BUNDLE" dist/RiserLab-macOS-Universal-VST3.zip
+          ditto -c -k --sequesterRsrc --keepParent "$AU_BUNDLE" dist/RiserLab-macOS-Universal-AU.zip
 
       - name: Upload macOS VST3
         uses: actions/upload-artifact@v4
         with:
           name: RiserLab-macOS-Universal-VST3
-          path: build/RiserLab_artefacts/Release/VST3/
+          path: dist/RiserLab-macOS-Universal-VST3.zip
           if-no-files-found: error
-          compression-level: 6
+          compression-level: 0
 
       - name: Upload macOS AU
         uses: actions/upload-artifact@v4
         with:
           name: RiserLab-macOS-Universal-AU
-          path: build/RiserLab_artefacts/Release/AU/
+          path: dist/RiserLab-macOS-Universal-AU.zip
           if-no-files-found: error
-          compression-level: 6
+          compression-level: 0

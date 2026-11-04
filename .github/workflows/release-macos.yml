@@ -19,7 +19,7 @@ jobs:
   macos-universal:
     runs-on: macos-14
     env:
-      TAG: \${{ github.event.release.tag_name || inputs.tag }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -31,7 +31,7 @@ jobs:
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
       - name: Configurar (universal arm64 + x86_64)
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DRISERLAB_CI=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DRISERLAB_CI=ON -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64'
 
       - name: Compilar VST3 y AU
         run: cmake --build build --config Release --target RiserLab_VST3 RiserLab_AU --parallel 3
@@ -94,12 +94,12 @@ jobs:
           ./pluginval.app/Contents/MacOS/pluginval --strictness-level 5 --validate-in-process stage/RiserLab.vst3
 
       - name: Crear ZIP, PKG y DMG
-        run: ./packaging/macos/build-packages.sh "\${{ steps.ver.outputs.version }}" stage dist
+        run: ./packaging/macos/build-packages.sh "${{ steps.ver.outputs.version }}" stage dist
 
       - name: Verificar paquetes generados (falla si faltan)
         run: |
           set -e
-          V="\${{ steps.ver.outputs.version }}"
+          V="${{ steps.ver.outputs.version }}"
           for f in zip dmg pkg; do
             F="dist/RiserLab-macOS-Universal-$V.$f"
             [ -s "$F" ] || { echo "::error::No se generó $F"; exit 1; }
@@ -119,9 +119,9 @@ jobs:
       - name: Publicar en GitHub Releases
         if: env.TAG != ''
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          V="\${{ steps.ver.outputs.version }}"
+          V="${{ steps.ver.outputs.version }}"
           gh release upload "$TAG" dist/RiserLab-macOS-Universal-$V.dmg dist/RiserLab-macOS-Universal-$V.zip dist/SHA256SUMS.txt --clobber
           BODY="$(gh release view "$TAG" --json body -q .body)"
           if ! echo "$BODY" | grep -q 'INSTALACIÓN macOS'; then

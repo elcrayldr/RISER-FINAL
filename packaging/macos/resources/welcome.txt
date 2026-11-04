@@ -1,0 +1,11 @@
+RiserLab – Instalador para macOS
+
+Este instalador copia RiserLab (VST3 y Audio Unit, compatibles con Mac Intel y Apple Silicon) en:
+
+  /Library/Audio/Plug-Ins/VST3
+  /Library/Audio/Plug-Ins/Components
+
+Solo se instalan/sustituyen los archivos de RiserLab. No se modifica ningún otro plugin.
+Se te pedirá la contraseña de administrador del Mac (es el mecanismo normal de macOS).
+
+Después de instalar, reinicia tu DAW y vuelve a escanear plugins si hace falta.

@@ -17,7 +17,7 @@ jobs:
         run: cmake -S . -B build -A x64
 
       - name: Build VST3
-        run: cmake --build build --config Release --target RiserLab_VST3 --parallel 2
+        run: cmake --build build --config Release --parallel 2
 
       - name: Upload Windows VST3
         uses: actions/upload-artifact@v4

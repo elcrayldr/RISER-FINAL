@@ -1,0 +1,130 @@
+name: Release macOS (Universal, sin Apple Developer)
+
+on:
+  push:
+    branches: [macos-distribution]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de release donde subir los archivos (vacío = solo artefactos)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  macos-universal:
+    runs-on: macos-14
+    env:
+      TAG: \${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versión
+        id: ver
+        run: |
+          V="\${TAG#v}"
+          if [ -z "$V" ]; then V="$(sed -nE 's/.*project\\(RiserLab VERSION ([0-9.]+).*/\\1/p' CMakeLists.txt)"; fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Configurar (universal arm64 + x86_64)
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DRISERLAB_CI=ON
+
+      - name: Compilar VST3 y AU
+        run: cmake --build build --config Release --target RiserLab_VST3 RiserLab_AU --parallel 3
+
+      - name: Localizar bundles (falla si no existen)
+        run: |
+          mkdir -p stage
+          VST3="$(find build -type d -name 'RiserLab.vst3' | head -1)"
+          AU="$(find build -type d -name 'RiserLab.component' | head -1)"
+          [ -n "$VST3" ] || { echo "::error::No se generó RiserLab.vst3"; exit 1; }
+          [ -n "$AU" ]   || { echo "::error::No se generó RiserLab.component"; exit 1; }
+          ditto "$VST3" stage/RiserLab.vst3
+          ditto "$AU"   stage/RiserLab.component
+
+      - name: Validar arquitecturas, estructura y dependencias
+        run: |
+          set -e
+          for b in stage/RiserLab.vst3 stage/RiserLab.component; do
+            BIN="$b/Contents/MacOS/RiserLab"
+            [ -f "$BIN" ] || { echo "::error::Falta $BIN"; exit 1; }
+            [ -f "$b/Contents/Info.plist" ] || { echo "::error::Falta Info.plist en $b"; exit 1; }
+            ARCHS="$(lipo -archs "$BIN")"; echo "$b -> $ARCHS"
+            echo "$ARCHS" | grep -q arm64  || { echo "::error::$b sin arm64"; exit 1; }
+            echo "$ARCHS" | grep -q x86_64 || { echo "::error::$b sin x86_64"; exit 1; }
+            plutil -lint "$b/Contents/Info.plist"
+            echo "--- dependencias de $b"; otool -L "$BIN"
+            if otool -L "$BIN" | tail -n +2 | awk '{print $1}' | grep -vE '^(/System/Library/|/usr/lib/)'; then
+              echo "::error::Dependencias externas no del sistema en $b"; exit 1
+            fi
+            if strings "$BIN" | grep -E '/Users/runner|/Users/[a-z]+/work' ; then
+              echo "::error::Rutas locales de compilación incrustadas en $b"; exit 1
+            fi
+          done
+          grep -q AudioComponents stage/RiserLab.component/Contents/Info.plist || { echo "::error::Info.plist del AU sin AudioComponents"; exit 1; }
+
+      - name: Firma ad hoc (NO equivale a Developer ID)
+        run: |
+          for b in stage/RiserLab.vst3 stage/RiserLab.component; do
+            xattr -cr "$b"
+            codesign --force --deep --sign - --timestamp=none "$b"
+            codesign --verify --deep --strict --verbose=2 "$b"
+            codesign -dv "$b" 2>&1 | grep -E 'Signature|Authority|flags' || true
+          done
+
+      - name: Validar AU con auval (informativo)
+        continue-on-error: true
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          ditto stage/RiserLab.component ~/Library/Audio/Plug-Ins/Components/RiserLab.component
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 3
+          auval -a | grep -i CrLd
+          auval -v aufx Rslp CrLd
+
+      - name: Validar VST3 con pluginval (informativo)
+        continue-on-error: true
+        run: |
+          curl -fsSL -o pluginval.zip https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_macOS.zip
+          unzip -q pluginval.zip
+          ./pluginval.app/Contents/MacOS/pluginval --strictness-level 5 --validate-in-process stage/RiserLab.vst3
+
+      - name: Crear ZIP, PKG y DMG
+        run: ./packaging/macos/build-packages.sh "\${{ steps.ver.outputs.version }}" stage dist
+
+      - name: Verificar paquetes generados (falla si faltan)
+        run: |
+          set -e
+          V="\${{ steps.ver.outputs.version }}"
+          for f in zip dmg pkg; do
+            F="dist/RiserLab-macOS-Universal-$V.$f"
+            [ -s "$F" ] || { echo "::error::No se generó $F"; exit 1; }
+          done
+          hdiutil verify "dist/RiserLab-macOS-Universal-$V.dmg"
+          unzip -tq "dist/RiserLab-macOS-Universal-$V.zip"
+          pkgutil --check-signature "dist/RiserLab-macOS-Universal-$V.pkg" || true
+          pkgutil --payload-files "dist/RiserLab-macOS-Universal-$V.pkg" | grep -E 'RiserLab\\.(vst3|component)$'
+          (cd dist && shasum -a 256 * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RiserLab-macOS-Universal
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Publicar en GitHub Releases
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          V="\${{ steps.ver.outputs.version }}"
+          gh release upload "$TAG" dist/RiserLab-macOS-Universal-$V.dmg dist/RiserLab-macOS-Universal-$V.zip dist/SHA256SUMS.txt --clobber
+          BODY="$(gh release view "$TAG" --json body -q .body)"
+          if ! echo "$BODY" | grep -q 'INSTALACIÓN macOS'; then
+            { echo "$BODY"; echo; cat packaging/macos/RELEASE-NOTES-SNIPPET.md; } > notes.md
+            gh release edit "$TAG" --notes-file notes.md
+          fi

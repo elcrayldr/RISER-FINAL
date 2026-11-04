@@ -58,7 +58,7 @@ jobs:
             echo "$ARCHS" | grep -q x86_64 || { echo "::error::$b sin x86_64"; exit 1; }
             plutil -lint "$b/Contents/Info.plist"
             echo "--- dependencias de $b"; otool -L "$BIN"
-            if otool -L "$BIN" | tail -n +2 | awk '{print $1}' | grep -vE '^(/System/Library/|/usr/lib/)'; then
+            if otool -L "$BIN" | awk '/^[[:space:]]+\\// {print $1}' | grep -vE '^(/System/Library/|/usr/lib/)'; then
               echo "::error::Dependencias externas no del sistema en $b"; exit 1
             fi
             if strings "$BIN" | grep -E '/Users/runner|/Users/[a-z]+/work' ; then

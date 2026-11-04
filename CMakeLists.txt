@@ -62,6 +62,7 @@ endif()
 
 juce_add_plugin(RiserLab
     COMPANY_NAME "CRAY LDR"
+    BUNDLE_ID "com.crayldr.riserlab"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE

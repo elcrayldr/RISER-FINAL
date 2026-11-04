@@ -1,13 +1,29 @@
 cmake_minimum_required(VERSION 3.22)
 
+# APPLE todavía no está definido antes de project(). Detectamos el host
+# macOS con CMAKE_HOST_SYSTEM_NAME para fijar el toolchain universal a tiempo.
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS deployment target")
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Universal macOS architectures")
+endif()
+
 project(RiserLab VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Evita que rutas locales de la máquina de compilación queden incrustadas en los binarios de macOS.
 if(APPLE)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "")
-    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
+    add_compile_options(
+        "-ffile-prefix-map=\${CMAKE_SOURCE_DIR}=src"
+        "-ffile-prefix-map=\${CMAKE_BINARY_DIR}=build")
+endif()
+
+# En CI (GitHub Actions) no se copia el plugin a carpetas del sistema tras compilar.
+if(DEFINED ENV{CI} OR RISERLAB_CI)
+    set(RISERLAB_COPY_AFTER_BUILD FALSE)
+else()
+    set(RISERLAB_COPY_AFTER_BUILD TRUE)
 endif()
 
 include(FetchContent)
@@ -22,20 +38,20 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(JUCE)
 
 # Descargar el logo público para incrustarlo en la interfaz del plugin.
-set(CRAY_LDR_LOGO "${CMAKE_CURRENT_BINARY_DIR}/CrayLDRLogo.png")
+set(CRAY_LDR_LOGO "\${CMAKE_CURRENT_BINARY_DIR}/CrayLDRLogo.png")
 file(DOWNLOAD
     "https://raw.githubusercontent.com/elcrayldr/logo/main/IMG_7425.PNG"
-    "${CRAY_LDR_LOGO}"
+    "\${CRAY_LDR_LOGO}"
     STATUS CRAY_LDR_LOGO_DOWNLOAD_STATUS
     TLS_VERIFY ON
 )
 list(GET CRAY_LDR_LOGO_DOWNLOAD_STATUS 0 CRAY_LDR_LOGO_DOWNLOAD_CODE)
 if(NOT CRAY_LDR_LOGO_DOWNLOAD_CODE EQUAL 0)
-    message(FATAL_ERROR "No se pudo descargar el logo de CRAY LDR: ${CRAY_LDR_LOGO_DOWNLOAD_STATUS}")
+    message(FATAL_ERROR "No se pudo descargar el logo de CRAY LDR: \${CRAY_LDR_LOGO_DOWNLOAD_STATUS}")
 endif()
 
 juce_add_binary_data(RiserLabAssets
-    SOURCES "${CRAY_LDR_LOGO}"
+    SOURCES "\${CRAY_LDR_LOGO}"
 )
 
 if(APPLE)
@@ -52,10 +68,10 @@ juce_add_plugin(RiserLab
     IS_MIDI_EFFECT FALSE
     PLUGIN_MANUFACTURER_CODE CrLd
     PLUGIN_CODE Rslp
-    FORMATS ${RISERLAB_FORMATS}
+    FORMATS \${RISERLAB_FORMATS}
     PRODUCT_NAME "RiserLab"
     VST3_CATEGORIES Fx
-    COPY_PLUGIN_AFTER_BUILD TRUE
+    COPY_PLUGIN_AFTER_BUILD \${RISERLAB_COPY_AFTER_BUILD}
 )
 
 target_sources(RiserLab PRIVATE

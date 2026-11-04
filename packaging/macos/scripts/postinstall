@@ -1,0 +1,14 @@
+#!/bin/bash
+# Se ejecuta como root al final de la instalación del .pkg.
+# Solo actúa sobre los dos bundles de RiserLab instalados; no toca nada más del sistema.
+VST3="/Library/Audio/Plug-Ins/VST3/RiserLab.vst3"
+AU="/Library/Audio/Plug-Ins/Components/RiserLab.component"
+
+for b in "$VST3" "$AU"; do
+  if [ -d "$b" ]; then
+    /usr/bin/xattr -dr com.apple.quarantine "$b" 2>/dev/null || true
+    /bin/chmod -R go+rX "$b" 2>/dev/null || true
+  fi
+done
+/usr/bin/killall -9 AudioComponentRegistrar 2>/dev/null || true
+exit 0

@@ -3,7 +3,7 @@ name: Build RiserLab
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, macos-distribution]
 
 jobs:
   build-windows:

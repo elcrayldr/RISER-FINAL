@@ -11,19 +11,10 @@ mkdir -p "$PAY/Library/Audio/Plug-Ins/VST3" "$PAY/Library/Audio/Plug-Ins/Compone
 ditto "$SRC/RiserLab.vst3" "$PAY/Library/Audio/Plug-Ins/VST3/RiserLab.vst3"
 ditto "$SRC/RiserLab.component" "$PAY/Library/Audio/Plug-Ins/Components/RiserLab.component"
 
-pkgbuild --analyze --root "$PAY" "$WORK/components.plist" >/dev/null
-python3 - "$WORK/components.plist" <<'PY'
-import plistlib, sys
-p = sys.argv[1]
-d = plistlib.load(open(p, 'rb'))
-for c in d:
-    c['BundleIsRelocatable'] = False
-    c['BundleHasStrictIdentifier'] = False
-    c['BundleOverwriteAction'] = 'upgrade'
-plistlib.dump(d, open(p, 'wb'))
-PY
-
-pkgbuild --root "$PAY" --component-plist "$WORK/components.plist" \
+# Construir el paquete directamente desde el payload con rutas /Library/... .
+# Evita el component-plist generado por pkgbuild --analyze, que provoca
+# "pkgbuild: error: (null)" en el runner macOS actual.
+pkgbuild --root "$PAY" \
   --identifier com.crayldr.riserlab.pkg --version "$VERSION" \
   --install-location / --scripts "$HERE/scripts" "$WORK/RiserLab-component.pkg"
 

@@ -1,0 +1,24 @@
+RISERLAB PARA macOS – INSTALACIÓN (Mac Intel y Apple Silicon)
+
+RiserLab NO está notarizado por Apple (el desarrollador no paga el Apple Developer Program).
+Por eso macOS mostrará un aviso la primera vez. Es normal y se resuelve en 4 pasos:
+
+1. Abre el DMG y haz doble clic en "Instalar RiserLab.pkg".
+2. macOS dirá que no puede verificarlo. Pulsa "Aceptar" / "Hecho".
+3. Abre Ajustes del Sistema > Privacidad y seguridad, baja hasta el mensaje sobre
+   "Instalar RiserLab.pkg" y pulsa "Abrir igualmente". Confirma con tu contraseña o Touch ID.
+   (En macOS 15 Sequoia o superior el clic derecho > Abrir ya no basta: hay que usar este botón.)
+4. Sigue el instalador. Reinicia tu DAW y escanea plugins.
+
+El instalador deja:
+  /Library/Audio/Plug-Ins/VST3/RiserLab.vst3
+  /Library/Audio/Plug-Ins/Components/RiserLab.component (Audio Unit)
+
+Alternativa sin instalador: descomprime el ZIP y copia los dos archivos a esas carpetas.
+Si el DAW no ve el plugin, abre Terminal y ejecuta una sola vez (solo afecta a RiserLab):
+  sudo xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/VST3/RiserLab.vst3 /Library/Audio/Plug-Ins/Components/RiserLab.component
+
+Desinstalar: "Desinstalar RiserLab.command" (dentro del DMG; puede requerir el mismo "Abrir igualmente"),
+o borra los dos archivos de las rutas de arriba.
+
+No desactives Gatekeeper ni uses herramientas que lo hagan: no es necesario.

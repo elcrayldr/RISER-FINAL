@@ -1,0 +1,12 @@
+#!/bin/bash
+# Guarda una copia de la versión anterior antes de que el instalador la sustituya.
+# No elimina el plugin anterior: si la instalación se interrumpe, seguirá disponible.
+BK="/Library/Application Support/RiserLab/backup"
+for b in "/Library/Audio/Plug-Ins/VST3/RiserLab.vst3" "/Library/Audio/Plug-Ins/Components/RiserLab.component"; do
+  if [ -d "$b" ]; then
+    /bin/mkdir -p "$BK"
+    /bin/rm -rf "$BK/$(basename "$b")"
+    /bin/cp -R "$b" "$BK/" 2>/dev/null || true
+  fi
+done
+exit 0
